@@ -143,7 +143,8 @@ class DuelingDoubleDeepQNetwork(nn.Module):
         batch_memory = torch.tensor(batch_memory, dtype=torch.float)
         lstm_batch_memory = torch.tensor(lstm_batch_memory, dtype=torch.float)
 
-        q_next, q_eval4next = self.forward(batch_memory[:, -self.n_features:], lstm_batch_memory[:, :, self.n_lstm_state:])
+        q_next, q_eval4next = (self.forward(batch_memory[:, -self.n_features:], lstm_batch_memory[:, :, self.n_lstm_state:]),
+                               self.forward(batch_memory[:, -self.n_features:], lstm_batch_memory[:, :, self.n_lstm_state:]))
         q_eval = self.forward(batch_memory[:, :self.n_features], lstm_batch_memory[:, :, :self.n_lstm_state])
 
         q_target = q_eval.clone().detach()
