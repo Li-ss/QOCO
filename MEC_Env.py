@@ -6,73 +6,76 @@ import queue
 
 class MEC:
     def __init__(self, num_ue, num_edge, num_time, num_component, max_delay):
-        # Initialize variables
-        self.n_ue          = num_ue
-        self.n_edge        = num_edge
-        self.n_time        = num_time
-        self.n_component   = num_component
-        self.max_delay     = max_delay
-        self.duration      = Config.DURATION
-        self.ue_p_comp     = Config.UE_COMP_ENERGY
-        self.ue_p_tran     = Config.UE_TRAN_ENERGY
-        self.ue_p_idle     = Config.UE_IDLE_ENERGY
-        self.edge_p_comp   = Config.EDGE_COMP_ENERGY
+        # Initialize variables 初始化变量
+        self.n_ue          = num_ue           # 用户数量
+        self.n_edge        = num_edge         # 边缘节点数量
+        self.n_time        = num_time         # 时间片
+        self.n_component   = num_component    # 组件数量
+        self.max_delay     = max_delay        # 最大延迟
+        self.duration      = Config.DURATION  # 持续时间
+        self.ue_p_comp     = Config.UE_COMP_ENERGY    # 用户计算功率
+        self.ue_p_tran     = Config.UE_TRAN_ENERGY    # 用户和边缘间传输功率
+        self.ue_p_idle     = Config.UE_IDLE_ENERGY    # 用户待机功率
+        self.edge_p_comp   = Config.EDGE_COMP_ENERGY  # 边缘节点计算功率
 
-        self.time_count      = 0
-        self.task_count_ue   = 0
-        self.task_count_edge = 0
-        self.n_actions       = self.n_component + 1
-        self.n_features      = 1 + 1 + 1 + self.n_edge
-        self.n_lstm_state    = self.n_edge
+        self.time_count      = 0  # 时间步
+        self.task_count_ue   = 0  # 用户任务数
+        self.task_count_edge = 0  # 边缘节点任务数
+        self.n_actions       = self.n_component + 1     # 动作数量
+        self.n_features      = 1 + 1 + 1 + self.n_edge  # 网络特征数
+        self.n_lstm_state    = self.n_edge              # lstm状态数
   
-        # Computation and transmission capacities
-        self.comp_cap_ue   = Config.UE_COMP_CAP * np.ones(self.n_ue) * self.duration
-        self.comp_cap_edge = Config.EDGE_COMP_CAP * np.ones([self.n_edge]) * self.duration
-        self.tran_cap_ue   = Config.UE_TRAN_CAP * np.ones([self.n_ue, self.n_edge]) * self.duration
-        self.comp_density  = Config.TASK_COMP_DENS * np.ones([self.n_ue])
+        # Computation and transmission capacities 计算和传输容量
+        self.comp_cap_ue   = Config.UE_COMP_CAP * np.ones(self.n_ue) * self.duration                 # 用户计算容量
+        self.comp_cap_edge = Config.EDGE_COMP_CAP * np.ones([self.n_edge]) * self.duration           # 边缘节点计算容量
+        self.tran_cap_ue   = Config.UE_TRAN_CAP * np.ones([self.n_ue, self.n_edge]) * self.duration  # 用户和边缘间传输容量
+        self.comp_density  = Config.TASK_COMP_DENS * np.ones([self.n_ue])                            # 计算任务密度
 
-        self.n_cycle = 1
-        self.task_arrive_prob = Config.TASK_ARRIVE_PROB
-        self.max_arrive_size   = Config.TASK_MAX_SIZE
-        self.min_arrive_size   = Config.TASK_MIN_SIZE
-        self.arrive_task_set    = np.arange(self.min_arrive_size, self.max_arrive_size, 0.1)
-        self.arrive_task        = np.zeros([self.n_time, self.n_ue])
-        self.n_task = int(self.n_time * self.task_arrive_prob)
+        self.n_cycle = 1  # 周期数量
+        self.task_arrive_prob = Config.TASK_ARRIVE_PROB  # 任务到达概率
+        self.max_arrive_size   = Config.TASK_MAX_SIZE    # 最大任务数量
+        self.min_arrive_size   = Config.TASK_MIN_SIZE    # 最小任务数量
+        self.arrive_task_set    = np.arange(self.min_arrive_size, self.max_arrive_size, 0.1)  # 到达任务集
+        self.arrive_task        = np.zeros([self.n_time, self.n_ue])  # 到达任务
+        self.n_task = int(self.n_time * self.task_arrive_prob)  # 任务数量
 
-        # Task delay and energy-related arrays
-        self.process_delay = np.zeros([self.n_time, self.n_ue])
-        self.ue_bit_processed = np.zeros([self.n_time, self.n_ue])
-        self.edge_bit_processed = np.zeros([self.n_time, self.n_ue, self.n_edge])
-        self.ue_bit_transmitted = np.zeros([self.n_time, self.n_ue])
-        self.ue_comp_energy = np.zeros([self.n_time, self.n_ue])
-        self.edge_comp_energy = np.zeros([self.n_time, self.n_ue, self.n_edge])
-        self.ue_idle_energy = np.zeros([self.n_time, self.n_ue, self.n_edge])
-        self.ue_tran_energy = np.zeros([self.n_time, self.n_ue])
-        self.unfinish_task = np.zeros([self.n_time, self.n_ue])
-        self.process_delay_trans = np.zeros([self.n_time, self.n_ue])
-        self.edge_drop = np.zeros([self.n_ue, self.n_edge])
+        # Task delay and energy-related arrays 任务延迟和能量相关数组
+        self.process_delay = np.zeros([self.n_time, self.n_ue])  # 处理延迟
+        self.ue_bit_processed = np.zeros([self.n_time, self.n_ue])                 # 用户处理bit
+        self.edge_bit_processed = np.zeros([self.n_time, self.n_ue, self.n_edge])  # 边缘节点处理bit
+        self.ue_bit_transmitted = np.zeros([self.n_time, self.n_ue])               # 用户传输bit
+        self.ue_comp_energy = np.zeros([self.n_time, self.n_ue])                 # 用户计算能量
+        self.edge_comp_energy = np.zeros([self.n_time, self.n_ue, self.n_edge])  # 边缘节点计算能量
+        self.ue_idle_energy = np.zeros([self.n_time, self.n_ue, self.n_edge])    # 用户待机能量
+        self.ue_tran_energy = np.zeros([self.n_time, self.n_ue])                 # 用户和边缘间传输能量
+        self.unfinish_task = np.zeros([self.n_time, self.n_ue])  # 未完成任务标记
+        self.process_delay_trans = np.zeros([self.n_time, self.n_ue])  # 传输等待延迟
+        self.edge_drop = np.zeros([self.n_ue, self.n_edge])  # 边缘丢弃bit
 
-        # Queue information initialization
-        self.t_ue_comp = -np.ones([self.n_ue])
-        self.t_ue_tran = -np.ones([self.n_ue])
-        self.b_edge_comp = np.zeros([self.n_ue, self.n_edge])
+        # Queue information initialization 队列信息初始化
+        self.t_ue_comp = -np.ones([self.n_ue])  # 用户下一任务开始计算时间
+        self.t_ue_tran = -np.ones([self.n_ue])  # 用户下一任务开始传输时间
+        self.b_edge_comp = np.zeros([self.n_ue, self.n_edge])  # 边缘计算队列剩余的bit
 
-        # Queue initialization
-        self.ue_computation_queue = [queue.Queue() for _ in range(self.n_ue)]
-        self.ue_transmission_queue = [queue.Queue() for _ in range(self.n_ue)]
-        self.edge_computation_queue = [[queue.Queue() for _ in range(self.n_edge)] for _ in range(self.n_ue)]
-        self.edge_ue_m = np.zeros(self.n_edge)
-        self.edge_ue_m_observe = np.zeros(self.n_edge)
+        # Queue initialization 队列初始化
+        self.ue_computation_queue = [queue.Queue() for _ in range(self.n_ue)]   # 用户计算队列
+        self.ue_transmission_queue = [queue.Queue() for _ in range(self.n_ue)]  # 用户传输队列
+        self.edge_computation_queue = [[queue.Queue() for _ in range(self.n_edge)] for _ in range(self.n_ue)]  # 边缘计算队列
+        self.edge_ue_m = np.zeros(self.n_edge)  # 下一时间步活跃计算队列数量
+        self.edge_ue_m_observe = np.zeros(self.n_edge)  # 观测到的活跃计算队列数量
 
-        # Task indicator initialization
+        # Task indicator initialization 任务指示器初始化
+        # 本地处理任务
         self.local_process_task = [{'DIV': np.nan, 'UE_ID': np.nan, 'TASK_ID': np.nan, 'SIZE': np.nan,
                                     'TIME': np.nan, 'EDGE': np.nan, 'REMAIN': np.nan} for _ in range(self.n_ue)]
+        # 本地传输任务
         self.local_transmit_task = [{'DIV': np.nan, 'UE_ID': np.nan, 'TASK_ID': np.nan, 'SIZE': np.nan,
                                      'TIME': np.nan, 'EDGE': np.nan, 'REMAIN': np.nan} for _ in range(self.n_ue)]
+        # 边缘处理任务
         self.edge_process_task = [[{'DIV': np.nan, 'UE_ID': np.nan, 'TASK_ID': np.nan, 'SIZE': np.nan,
                                     'TIME': np.nan, 'REMAIN': np.nan} for _ in range(self.n_edge)] for _ in range(self.n_ue)]
 
-        self.task_history = [[] for _ in range(self.n_ue)]
+        self.task_history = [[] for _ in range(self.n_ue)]  # 历史任务
 
     def reset(self, arrive_task):
         # Reset variables and queues

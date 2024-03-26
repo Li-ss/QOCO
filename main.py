@@ -1,11 +1,14 @@
 from MEC_Env import MEC
-from DDQN import DuelingDoubleDeepQNetwork
+from DDQN_torch import DuelingDoubleDeepQNetwork
 from Config import Config
 import matplotlib.pyplot as plt
 import numpy as np
 import random
 import os
 import shutil
+from torch.utils.tensorboard import SummaryWriter
+# from tensorboard.writer import SummaryWriter
+
 
 '''
 if not os.path.exists("models"):
@@ -70,6 +73,7 @@ def train(ue_RL_list, NUM_EPISODE):
     RL_step = 0
     a = 1
 
+    writer = SummaryWriter('log')
     for episode in range(NUM_EPISODE):
         print("episode  :", episode)
         print("epsilon  :", ue_RL_list[0].epsilon)
@@ -82,6 +86,8 @@ def train(ue_RL_list, NUM_EPISODE):
 
         # OBSERVATION MATRIX SETTING
         history = list()
+
+
         for time_index in range(env.n_time):
             history.append(list())
             for ue_index in range(env.n_ue):
@@ -215,13 +221,18 @@ def train(ue_RL_list, NUM_EPISODE):
                                 drop_task += 1
                 cnt = len(env.task_history) * len(env.task_history[0]) * env.n_component
 
-                print("++++++++++++++++++++++")
-                print("drrop_rate   : ", full_drop_task/(cnt/env.n_component))
-                print("full_drrop   : ", full_drop_task)
-                print("full_complate: ", full_complete_task)
-                print("complete_task: ", complete_task)
-                print("drop_task:     ", drop_task)
-                print("++++++++++++++++++++++")
+                writer.add_scalar("drop_rate   : ", full_drop_task/(cnt/env.n_component), episode)
+                writer.add_scalar("full_drop   : ", full_drop_task, episode)
+                writer.add_scalar("full_complete: ", full_complete_task, episode)
+                writer.add_scalar("complete_task: ", complete_task, episode)
+                writer.add_scalar("drop_task:     ", drop_task, episode)
+                # print("++++++++++++++++++++++")
+                # print("drop_rate   : ", full_drop_task/(cnt/env.n_component))
+                # print("full_drop   : ", full_drop_task)
+                # print("full_complete: ", full_complete_task)
+                # print("complete_task: ", complete_task)
+                # print("drop_task:     ", drop_task)
+                # print("++++++++++++++++++++++")
 
                 if episode % 999 == 0 and episode != 0:
                     os.mkdir("models" + "/" + str(episode))
@@ -272,25 +283,30 @@ def train(ue_RL_list, NUM_EPISODE):
                 ue_idle_energy = sum(sum(env.ue_idle_energy))
 
                 # Print results
-                print(int(ue_bit_processed), ue_comp_energy, "local")
-                print(int(ue_bit_transmitted), ue_tran_energy, "trans")
-                print(int(sum(edge_bit_processed)),sum(edge_comp_energy), sum(ue_idle_energy), "edge")
-                print("_________________________________________________")
+                writer.add_scalars("local", {'ubp': int(ue_bit_processed), 'uce': ue_comp_energy},  episode)
+                writer.add_scalars("trans", {'ubt': int(ue_bit_transmitted), 'ute': ue_tran_energy}, episode)
+                writer.add_scalars("edge", {'ebp': int(sum(edge_bit_processed)), 'ece': sum(edge_comp_energy), 'uie': sum(ue_idle_energy)}, episode)
+                # print(int(ue_bit_processed), ue_comp_energy, "local")
+                # print(int(ue_bit_transmitted), ue_tran_energy, "trans")
+                # print(int(sum(edge_bit_processed)),sum(edge_comp_energy), sum(ue_idle_energy), "edge")
+                # print("_________________________________________________")
 
                 break # Training Finished
+    writer.close()
+
 
 
 if __name__ == "__main__":
 
-    # GENERATE ENVIRONMENT
+    # GENERATE ENVIRONMENT 生成环境，给定用户数量、边缘节点数量、时间数量、组件数量、最大延迟
     env = MEC(Config.N_UE, Config.N_EDGE, Config.N_TIME, Config.N_COMPONENT, Config.MAX_DELAY)
 
-    # GENERATE MULTIPLE CLASSES FOR RL
+    # GENERATE MULTIPLE CLASSES FOR RL 生成多个强化学习类
     ue_RL_list = list()
     for ue in range(Config.N_UE):
         ue_RL_list.append(DuelingDoubleDeepQNetwork(env.n_actions, env.n_features, env.n_lstm_state, env.n_time,
                                                     learning_rate       = Config.LEARNING_RATE,
-                                                    reward_decay        = Config.REWARD_DDECAY,
+                                                    reward_decay        = Config.REWARD_DECAY,
                                                     e_greedy            = Config.E_GREEDY,
                                                     replace_target_iter = Config.N_NETWORK_UPDATE,  # each 200 steps, update target net
                                                     memory_size         = Config.MEMORY_SIZE,  # maximum of memory
@@ -302,7 +318,7 @@ if __name__ == "__main__":
         ue_RL_list[ue].Initialize(ue_RL_list[ue].sess, ue)
     '''
 
-    # TRAIN THE SYSTEM
+    # TRAIN THE SYSTEM 训练系统
     train(ue_RL_list, Config.N_EPISODE)
 
 

@@ -13,64 +13,64 @@ class DuelingDoubleDeepQNetwork(nn.Module):
 
         super(DuelingDoubleDeepQNetwork, self).__init__()
 
-        self.n_actions = n_actions
-        self.n_features = n_features
-        self.n_time = n_time
-        self.lr = learning_rate
-        self.gamma = reward_decay
-        self.epsilon_max = e_greedy
-        self.replace_target_iter = replace_target_iter
-        self.memory_size = memory_size
-        self.batch_size = batch_size
-        self.epsilon_increment = e_greedy_increment
-        self.epsilon = 0 if e_greedy_increment is not None else self.epsilon_max
-        self.dueling = dueling
-        self.double_q = double_q
-        self.learn_step_counter = 0
-        self.hidden_units_l1 = hidden_units_l1
+        self.n_actions = n_actions  # 动作数量
+        self.n_features = n_features  # 网络特征数
+        self.n_time = n_time  # 时间片
+        self.lr = learning_rate  # 学习率
+        self.gamma = reward_decay  # 折扣率
+        self.epsilon_max = e_greedy  # 最大利用概率
+        self.replace_target_iter = replace_target_iter  # target network 更新间隔
+        self.memory_size = memory_size  # 内存最大容量
+        self.batch_size = batch_size  # batch容量
+        self.epsilon_increment = e_greedy_increment  # 利用概率增长率
+        self.epsilon = 0 if e_greedy_increment is not None else self.epsilon_max  # 利用概率
+        self.dueling = dueling  # 是否用dueling network
+        self.double_q = double_q  # 是否用double q network
+        self.learn_step_counter = 0  # 学习步
+        self.hidden_units_l1 = hidden_units_l1  # 隐藏层维度
 
         # lstm
-        self.N_lstm = N_lstm
-        self.n_lstm_step = n_lstm_step
-        self.n_lstm_state = n_lstm_features
+        self.N_lstm = N_lstm  # lstm隐藏层维度
+        self.n_lstm_step = n_lstm_step  # lstm步长
+        self.n_lstm_state = n_lstm_features  # lstm状态数
 
+        # 回放缓存
         self.memory = np.zeros((self.memory_size, self.n_features + 1 + 1
                                 + self.n_features + self.n_lstm_state + self.n_lstm_state))
 
-        self._build_net()
+        self._build_net()  # 构建网络
 
-        self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
-        self.loss_func = nn.MSELoss()
+        self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)  # 优化器
+        self.loss_func = nn.MSELoss()  # 损失函数
 
-        self.reward_store = list()
-        self.action_store = list()
-        self.delay_store = list()
-        self.energy_store = list()
+        self.reward_store = list()  # 记录奖励
+        self.action_store = list()  # 记录动作
+        self.delay_store = list()   # 记录延迟
+        self.energy_store = list()  # 记录能量
 
-        self.lstm_history = deque(maxlen=self.n_lstm_step)
+        self.lstm_history = deque(maxlen=self.n_lstm_step)  # 历史lstm，最大长度为lstm步长的双向队列
         for _ in range(self.n_lstm_step):
             self.lstm_history.append(np.zeros([self.n_lstm_state]))
 
-        self.store_q_value = list()
+        self.store_q_value = list()  # 记录q值
 
     def _build_net(self):
-        # Build the neural network model
-
+        # Build the neural network model 构建神经网络模型
         hidden_units_l1 = self.hidden_units_l1
         N_lstm = self.N_lstm
 
-        # LSTM layer for load levels
+        # LSTM layer for load levels 构建lstm层来导入
         self.lstm_dnn = nn.LSTM(self.n_lstm_state, N_lstm, batch_first=True)
 
-        # Common layers
+        # Common layers 全连接层
         self.fc1 = nn.Linear(N_lstm + self.n_features, hidden_units_l1)
         self.fc2 = nn.Linear(hidden_units_l1, hidden_units_l1)
 
         if self.dueling:
             # Dueling DQN
-            # Value stream
+            # Value stream 价值网络
             self.value = nn.Linear(hidden_units_l1, 1)
-            # Advantage stream
+            # Advantage stream 优势网络
             self.advantage = nn.Linear(hidden_units_l1, self.n_actions)
         else:
             self.q = nn.Linear(hidden_units_l1, self.n_actions)
@@ -143,7 +143,8 @@ class DuelingDoubleDeepQNetwork(nn.Module):
         batch_memory = torch.tensor(batch_memory, dtype=torch.float)
         lstm_batch_memory = torch.tensor(lstm_batch_memory, dtype=torch.float)
 
-        q_next, q_eval4next = self.forward(batch_memory[:, -self.n_features:], lstm_batch_memory[:, :, self.n_lstm_state:])
+        q_next, q_eval4next = (self.forward(batch_memory[:, -self.n_features:], lstm_batch_memory[:, :, self.n_lstm_state:]),
+                               self.forward(batch_memory[:, -self.n_features:], lstm_batch_memory[:, :, self.n_lstm_state:]))
         q_eval = self.forward(batch_memory[:, :self.n_features], lstm_batch_memory[:, :, :self.n_lstm_state])
 
         q_target = q_eval.clone().detach()
