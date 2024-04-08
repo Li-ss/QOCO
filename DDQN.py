@@ -67,6 +67,7 @@ class DuelingDoubleDeepQNetwork:
         self.action_store = list()
         self.delay_store = list()
         self.energy_store = list()
+        self.loss_store = list()
 
         self.lstm_history = deque(maxlen=self.n_lstm_step)
         for ii in range(self.n_lstm_step):
@@ -220,7 +221,7 @@ class DuelingDoubleDeepQNetwork:
 
 
 
-    def learn(self):
+    def learn(self, RL_step):
 
         # check if replace target_net parameters
         if self.learn_step_counter % self.replace_target_iter == 0:
@@ -291,6 +292,11 @@ class DuelingDoubleDeepQNetwork:
         while episode >= len(self.reward_store):
             self.reward_store.append(np.zeros([self.n_time]))
         self.reward_store[episode][time] = reward
+
+    def do_store_loss(self, loss):
+        while episode >= len(self.loss_store):
+            self.loss_store.append(np.zeros([self.n_time]))
+        self.loss_store[episode][time] = loss
 
     def do_store_action(self,episode,time, action):
         while episode >= len(self.action_store):

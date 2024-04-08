@@ -4,7 +4,7 @@ class Config(object):
     N_UE        = 10   # 用户数量
     N_EDGE      = 2    # 边缘节点数量
     N_COMPONENT = 1    # 组件数量
-    N_EPISODE = 10     # 回合数量
+    N_EPISODE = 100     # 回合数量
     # N_EPISODE   = 1000
     N_TIME_SLOT = 100  # 时间片数量
     MAX_DELAY   = 10   # 最大延迟
